@@ -60,6 +60,7 @@ private:
   QLabel *ftpServerLabel;
   QLineEdit *ftpServerLineEdit;
   QLabel *statusLabel;
+  QLabel *localPathLabel;
   QTreeWidget *fileList;
   QPushButton *cdToParentButton;
   QPushButton *connectButton;

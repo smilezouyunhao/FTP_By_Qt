@@ -5,7 +5,7 @@
 
 FTPWindow::FTPWindow(QWidget *parent)
   : QDialog(parent), ftp(nullptr), networkSession(0), downloadBytes(0),
-  downloadTotalBytes(0), downloadTotalFiles(0), downloadPath("/Users/banana/Downloads/ftpdown"),
+  downloadTotalBytes(0), downloadTotalFiles(0), downloadPath(QCoreApplication::applicationDirPath() + "/DownDir"),
   downFinished(true), enterSubDir(false), currentDownPath("")
 {
   // ftp服务器输入框
@@ -15,6 +15,9 @@ FTPWindow::FTPWindow(QWidget *parent)
 
   // 状态提示框
   statusLabel = new QLabel(tr("请输入FTP server的信息"));
+
+  // 本地路径提示框
+  localPathLabel = new QLabel(tr("LocalPath: %1").arg(QCoreApplication::applicationDirPath()));
   
   // 目录列表
   fileList = new QTreeWidget;
@@ -75,6 +78,7 @@ FTPWindow::FTPWindow(QWidget *parent)
   mainLayout->addLayout(topLayout);
   mainLayout->addWidget(fileList);
   mainLayout->addWidget(statusLabel);
+  mainLayout->addWidget(localPathLabel);
   mainLayout->addWidget(buttonBox);
 
   setLayout(mainLayout);
@@ -241,6 +245,7 @@ void FTPWindow::connectToFtp()
       ftp->login(QUrl::fromPercentEncoding(url.userName().toLatin1()), url.password());
     else
       ftp->login();
+
     if (!url.path().isEmpty())
       ftp->cd(url.path());
   }
@@ -403,6 +408,8 @@ void FTPWindow::cdToParent()
 void FTPWindow::processItem(QTreeWidgetItem *item, int column)
 {
   QString name = item->text(0);
+
+  // 如果所选的是文件夹，则打开
   if (isDirectory.value(name))
   {
     fileList->clear();
