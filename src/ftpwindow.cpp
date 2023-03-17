@@ -1,5 +1,6 @@
 #include "ftpwindow.h"
 
+#include <QtWidgets/qtreewidget.h>
 #include <QtWidgets>
 #include <QtNetwork>
 
@@ -9,12 +10,12 @@ FTPWindow::FTPWindow(QWidget *parent)
   downFinished(true), enterSubDir(false), currentDownPath("")
 {
   // ftp服务器输入框
-  ftpServerLabel = new QLabel(tr("FTP &server:"));
+  ftpServerLabel = new QLabel(tr("FTP 服务器:"));
   ftpServerLineEdit = new QLineEdit("ftp://parallels:990117@10.211.55.3:21");
   ftpServerLabel->setBuddy(ftpServerLineEdit);
 
   // 状态提示框
-  statusLabel = new QLabel(tr("请输入FTP server的信息"));
+  statusLabel = new QLabel(tr("请输入FTP 服务器的信息"));
 
   // 本地路径提示框
   localPathLabel = new QLabel(tr("LocalPath: %1").arg(QCoreApplication::applicationDirPath()));
@@ -24,11 +25,22 @@ FTPWindow::FTPWindow(QWidget *parent)
   fileList->setEnabled(false);
   fileList->setRootIsDecorated(false);
   fileList->setSelectionMode(QAbstractItemView::ExtendedSelection);
-  fileList->setHeaderLabels(QStringList() << tr("Name") << tr("Size") << tr("Time"));
+  fileList->setHeaderLabels(QStringList() << tr("文件名") << tr("大小") << tr("时间"));
   fileList->setColumnWidth(0, 200);
   fileList->setColumnWidth(1, 200);
   fileList->setColumnWidth(2, 200);
   fileList->header()->setStretchLastSection(false);
+
+  // 本地目录列表
+  localList = new QTreeWidget;
+  localList->setEnabled(false);
+  localList->setRootIsDecorated(false);
+  localList->setSelectionMode(QAbstractItemView::ExtendedSelection);
+  localList->setHeaderLabels(QStringList() << tr("文件名"));
+  localList->setColumnWidth(0, 200);
+  /* localList->setColumnWidth(1, 200);
+  localList->setColumnWidth(2, 200); */
+  localList->header()->setStretchLastSection(false);
 
   // 连接按钮
   connectButton = new QPushButton(tr("Connect"));
@@ -43,12 +55,17 @@ FTPWindow::FTPWindow(QWidget *parent)
   downloadButton = new QPushButton(tr("Download"));
   downloadButton->setEnabled(false);
 
+  // 上传按钮
+  uploadButton = new QPushButton(tr("Upload"));
+  uploadButton->setEnabled(false);
+
   // 退出按钮
   quitButton = new QPushButton(tr("Quit"));
 
   // buttonBox
   buttonBox = new QDialogButtonBox;
   buttonBox->addButton(downloadButton, QDialogButtonBox::ActionRole);
+  buttonBox->addButton(uploadButton, QDialogButtonBox::ActionRole);
   buttonBox->addButton(quitButton, QDialogButtonBox::RejectRole);
 
   // 下载对话框(显示下载进度)
@@ -57,9 +74,18 @@ FTPWindow::FTPWindow(QWidget *parent)
   progressDialog->setAutoClose(false);
   progressDialog->setAutoReset(false);
 
+  // 本地目录处理
+  localCurrentPath = QCoreApplication::applicationDirPath();
+  QDir dir(localCurrentPath);
+  localDir = dir.entryList(QDir::Dirs | QDir::NoDot);
+  localFile = dir.entryList(QDir::Files);
+
   // connect
   connect(fileList, SIGNAL(itemActivated(QTreeWidgetItem *, int)), this, SLOT(processItem(QTreeWidgetItem *, int)));
   connect(fileList, SIGNAL(currentItemChanged(QTreeWidgetItem *, QTreeWidgetItem *)), this, SLOT(enableDownloadButton()));
+
+  connect(localList, SIGNAL(itemActivated(QTreeWidgetItem *, int)), this, SLOT(localProcessItem(QTreeWidgetItem *, int)));
+  connect(this, SIGNAL(sigLocalList(const QStringList &, const QStringList &)), this, SLOT(localAddToList(const QStringList &, const QStringList &)));
 
   connect(progressDialog, SIGNAL(canceled()), this, SLOT(cancelDownload()));
   connect(connectButton, SIGNAL(clicked()), this, SLOT(connectOrDisconnect()));
@@ -79,6 +105,7 @@ FTPWindow::FTPWindow(QWidget *parent)
   mainLayout->addWidget(fileList);
   mainLayout->addWidget(statusLabel);
   mainLayout->addWidget(localPathLabel);
+  mainLayout->addWidget(localList);
   mainLayout->addWidget(buttonBox);
 
   setLayout(mainLayout);
@@ -230,6 +257,9 @@ void FTPWindow::connectToFtp()
   fileList->clear();
   currentPath.clear();
   isDirectory.clear();
+
+  localList->clear();
+  emit sigLocalList(localDir, localFile);
 
   QUrl url(ftpServerLineEdit->text());
   // 检查填写的信息是否有效
@@ -429,6 +459,59 @@ void FTPWindow::processItem(QTreeWidgetItem *item, int column)
 
     return;
   }
+}
+
+// 本地处理item
+void FTPWindow::localProcessItem(QTreeWidgetItem *item, int column)
+{
+  QString name = item->text(0);
+
+  if (localDir.contains(name))
+  {
+    localList->clear();
+
+    localCurrentPath += '/';
+    localCurrentPath += name;
+
+    QDir dir(localCurrentPath);
+    localDir = dir.entryList(QDir::Dirs | QDir::NoDot);
+    localFile = dir.entryList(QDir::Files);
+
+    emit sigLocalList(localDir, localFile);
+  }
+}
+
+// 本地目录添加进TreeWidget
+void FTPWindow::localAddToList(const QStringList &dirList, const QStringList &fileList)
+{
+  localList->clear();
+  int dirIndex = 0;
+
+  for (int i = 0; i < dirList.size(); i++)
+  {
+    QTreeWidgetItem *item = new QTreeWidgetItem;
+
+    item->setText(0, dirList[i]);
+
+    QPixmap pixmap(":/images/dir.png");
+    item->setIcon(0, pixmap);
+
+    localList->insertTopLevelItem(dirIndex++, item);
+  }
+
+  for (int i = 0; i < fileList.size(); i++)
+  {
+    QTreeWidgetItem *item = new QTreeWidgetItem;
+
+    item->setText(0, fileList[i]);
+
+    QPixmap pixmap(":/images/file.png");
+    item->setIcon(0, pixmap);
+
+    localList->insertTopLevelItem(dirIndex++, item);
+  }
+
+  localList->setEnabled(true);
 }
 
 // 将下载按钮启用

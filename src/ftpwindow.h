@@ -33,6 +33,9 @@ public:
   QSize sizeHint() const;
   void downAllFile(QString rootDir); //下载的真正操作函数
 
+signals:
+  void sigLocalList(const QStringList &localDir, const QStringList &localFile);
+
 private slots:
   // 连接函数
   void connectOrDisconnect();
@@ -49,6 +52,8 @@ private slots:
   void addToList(const QVector<QUrlInfo> &urlInfos);
   void cdToParent();
   void processItem(QTreeWidgetItem *item, int column);
+  void localProcessItem(QTreeWidgetItem *item, int column);
+  void localAddToList(const QStringList &dirList, const QStringList &fileList);
 
   void enableDownloadButton();
   void enableConnectButton();
@@ -62,9 +67,11 @@ private:
   QLabel *statusLabel;
   QLabel *localPathLabel;
   QTreeWidget *fileList;
+  QTreeWidget *localList;
   QPushButton *cdToParentButton;
   QPushButton *connectButton;
   QPushButton *downloadButton;
+  QPushButton *uploadButton;
   QPushButton *quitButton;
   QDialogButtonBox *buttonBox;
   QProgressDialog *progressDialog;
@@ -74,6 +81,10 @@ private:
   QString currentPath;
   QFtp *ftp;
   QMap<int, QFile *> files;
+
+  QString localCurrentPath;
+  QStringList localDir;
+  QStringList localFile;
 
   // 网络会话
   QNetworkSession *networkSession;
