@@ -45,10 +45,15 @@ private slots:
   void clearDownFilesWhenCancelDownDir();
   void updateDataTransferProgress(qint64 readBytes, qint64 totalBytes);
 
+  // 本地Widget
+  void showLocalMain();
+  void addToLocalList(QString path);
+
   // 遍历目录函数
   void addToList(const QVector<QUrlInfo> &urlInfos);
   void cdToParent();
   void processItem(QTreeWidgetItem *item, int column);
+  void localProcessItem(QTreeWidgetItem *item, int column);
 
   void enableDownloadButton();
   void enableConnectButton();
@@ -62,18 +67,25 @@ private:
   QLabel *statusLabel;
   QLabel *localPathLabel;
   QTreeWidget *fileList;
+  QTreeWidget *localList;
   QPushButton *cdToParentButton;
   QPushButton *connectButton;
   QPushButton *downloadButton;
   QPushButton *quitButton;
+  QPushButton *localMainButton;
   QDialogButtonBox *buttonBox;
   QProgressDialog *progressDialog;
+  QWidget *localMain;
 
   // ftp目录和连接
   QHash<QString, bool> isDirectory;
   QString currentPath;
   QFtp *ftp;
   QMap<int, QFile *> files;
+
+  // 本地系统
+  QHash<QString, bool> localDirectory;
+  QString localPath;
 
   // 网络会话
   QNetworkSession *networkSession;
