@@ -1,13 +1,12 @@
 #include "ftpwindow.h"
 
-#include <QtWidgets/qtreewidget.h>
 #include <QtWidgets>
 #include <QtNetwork>
 
 FTPWindow::FTPWindow(QWidget *parent)
   : QDialog(parent), ftp(nullptr), networkSession(0), downloadBytes(0),
   downloadTotalBytes(0), downloadTotalFiles(0), downloadPath(QCoreApplication::applicationDirPath() + "/DownDir"),
-  downFinished(true), enterSubDir(false), currentDownPath("")
+  downFinished(true), uploadFinished(true), enterSubDir(false), currentDownPath("")
 {
   // ftp服务器输入框
   ftpServerLabel = new QLabel(tr("FTP 服务器:"));
@@ -37,7 +36,7 @@ FTPWindow::FTPWindow(QWidget *parent)
   localList->setRootIsDecorated(false);
   localList->setSelectionMode(QAbstractItemView::ExtendedSelection);
   localList->setHeaderLabels(QStringList() << tr("文件名"));
-  localList->setColumnWidth(0, 200);
+  localList->setColumnWidth(0, 400);
   /* localList->setColumnWidth(1, 200);
   localList->setColumnWidth(2, 200); */
   localList->header()->setStretchLastSection(false);
@@ -131,7 +130,7 @@ void FTPWindow::downAllFile(QString rootDir)
     if (isDirectory.value(fileName))
     {
       if(fileName != "..")
-      downDirs.push(thisRoot + fileName);
+        downDirs.push(thisRoot + fileName);
     }
     else {
       // 统计下载的字节量
@@ -180,6 +179,26 @@ void FTPWindow::downAllFile(QString rootDir)
 
     downloadButton->setEnabled(false);
     downloadTotalFiles = files.size();
+  }
+}
+
+// 上传真正操作函数
+void FTPWindow::uploadAllFile(QString rootDir)
+{
+  QString thisRoot(rootDir + "/");
+
+  QList<QTreeWidgetItem *> selectItemList = localList->selectedItems();
+  for (int i = 0; i < selectItemList.size(); i++)
+  {
+    QString fileName = selectItemList[i]->text(0);
+    if (localDir.contains(fileName))
+    {
+      if (fileName != "..")
+        uploadDir.push(thisRoot + fileName);
+    }
+    else
+    {
+    }
   }
 }
 
@@ -253,6 +272,7 @@ void FTPWindow::connectToFtp()
   connect(ftp, SIGNAL(commandFinished(int, bool)), this, SLOT(ftpCommandFinished(int, bool)));
   connect(ftp, SIGNAL(listInfos(QVector<QUrlInfo>)), this, SLOT(addToList(QVector<QUrlInfo>)));
   connect(ftp, SIGNAL(dataTransferProgress(qint64, qint64)), this, SLOT(updateDataTransferProgress(qint64, qint64)));
+  connect(ftp, SIGNAL(dataTransferProgress(qint64, qint64)), this, SLOT(localDataTransferProgress(qint64, qint64)));
 
   fileList->clear();
   currentPath.clear();
@@ -353,15 +373,51 @@ void FTPWindow::clearDownFilesWhenCancelDownDir()
   files.clear();
 }
 
-// 更新下载进度
+// 更新进度条进度
 void FTPWindow::updateDataTransferProgress(qint64 readBytes, qint64 totalBytes)
 {
   downloadBytes += readBytes;
 
   if (!progressDialog->isHidden())
   {
-    progressDialog->setMaximum(downloadTotalBytes);
-    progressDialog->setValue(downloadBytes);
+  progressDialog->setMaximum(downloadTotalBytes);
+  progressDialog->setValue(downloadBytes);
+}
+}
+
+// 上传文件
+void FTPWindow::uploadFile()
+{
+  files.clear();
+  uploadDir.clear();
+  uploadBytes = 0;
+  uploadTotalBytes = 0;
+  enterSubDir = false;
+  uploadFinished = false;
+
+  uploadAllFile(localCurrentPath);
+  localProgressDialog();
+}
+
+// 显示上传进度条
+void FTPWindow::localProgressDialog()
+{
+  if (!uploadFinished)
+  {
+    progressDialog->setLabelText(tr("正在上传所选文件..."));
+    progressDialog->exec();
+  }
+}
+
+// 更新进度条进度
+void FTPWindow::localDataTransferProgress(qint64 readBytes, qint64 totalBytes)
+{
+  uploadBytes += readBytes;
+
+  if (!progressDialog->isHidden())
+  {
+    progressDialog->setMaximum(uploadTotalBytes);
+    progressDialog->setValue(uploadBytes);
   }
 }
 
@@ -520,6 +576,12 @@ void FTPWindow::enableDownloadButton()
   downloadButton->setEnabled(true);
 }
 
+// 将上传按钮启用
+void FTPWindow::enableUploadButton()
+{
+  uploadButton->setEnabled(true);
+}
+
 // 将连接按钮启用
 void FTPWindow::enableConnectButton()
 {
@@ -562,6 +624,7 @@ void FTPWindow::ftpCommandFinished(int id, bool error)
     statusLabel->setText(tr("登录至 %1").arg(ftpServerLineEdit->text()));
     fileList->setFocus();
     downloadButton->setDefault(true);
+    uploadButton->setDefault(true);
     connectButton->setEnabled(true);
 
     return;
@@ -606,13 +669,16 @@ void FTPWindow::ftpCommandFinished(int id, bool error)
       downloadBytes = 0;
       downloadTotalBytes = 0;
       downloadTotalFiles = 0;
-    }else if (ftp->currentCommand() == QFtp::List)
-    {
-      if (isDirectory.isEmpty())
-      {
-        fileList->addTopLevelItem(new QTreeWidgetItem(QStringList() << tr("<empty>")));
-        fileList->setEnabled(false);
-      }
     }
+  }else if (ftp->currentCommand() == QFtp::List)
+  {
+    if (isDirectory.isEmpty())
+    {
+      fileList->addTopLevelItem(new QTreeWidgetItem(QStringList() << tr("<empty>")));
+      fileList->setEnabled(false);
+    }
+  }else if (ftp->currentCommand() == QFtp::Put)
+  {
+    enableUploadButton();
   }
 }

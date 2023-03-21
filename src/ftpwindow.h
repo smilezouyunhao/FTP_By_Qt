@@ -32,8 +32,10 @@ public:
   FTPWindow(QWidget *parent = 0);
   QSize sizeHint() const;
   void downAllFile(QString rootDir); //下载的真正操作函数
+  void uploadAllFile(QString rootDir); //上传的真正操作函数
 
 signals:
+  // 本地目录信号
   void sigLocalList(const QStringList &localDir, const QStringList &localFile);
 
 private slots:
@@ -48,6 +50,11 @@ private slots:
   void clearDownFilesWhenCancelDownDir();
   void updateDataTransferProgress(qint64 readBytes, qint64 totalBytes);
 
+  // 上传
+  void uploadFile();
+  void localProgressDialog();
+  void localDataTransferProgress(qint64 readBytes, qint64 totalBytes);
+
   // 遍历目录函数
   void addToList(const QVector<QUrlInfo> &urlInfos);
   void cdToParent();
@@ -56,6 +63,7 @@ private slots:
   void localAddToList(const QStringList &dirList, const QStringList &fileList);
 
   void enableDownloadButton();
+  void enableUploadButton();
   void enableConnectButton();
 
   void ftpCommandFinished(int id, bool error);
@@ -82,6 +90,7 @@ private:
   QFtp *ftp;
   QMap<int, QFile *> files;
 
+  // 本地目录
   QString localCurrentPath;
   QStringList localDir;
   QStringList localFile;
@@ -99,6 +108,13 @@ private:
   bool enterSubDir;
   QString currentDownPath;
   QStack<QString> downDirs; //下载处理堆栈
+
+  // 上传
+  long long uploadBytes;
+  long long uploadTotalBytes;
+  QString uploadFileName;
+  bool uploadFinished;
+  QStack<QString> uploadDir;
 };
 
 #endif  //FTPWINDOW_H
