@@ -38,13 +38,13 @@ FTPWindow::FTPWindow(QWidget *parent)
 
   // 本地目录列表
   localList = new QTreeWidget(localMain);
-  localList->resize(QSize(800, 500));
+  /* localList->resize(QSize(800, 500)); */
   localList->setRootIsDecorated(false);
   localList->setSelectionMode(QAbstractItemView::ExtendedSelection);
   localList->setHeaderLabels(QStringList() << tr("文件名") << tr("大小") << tr("时间"));
   localList->setColumnWidth(0, 400);
   localList->setColumnWidth(1, 200);
-  localList->setColumnWidth(2, 200);
+  localList->setColumnWidth(2, 100);
   localList->header()->setStretchLastSection(false);
 
   // 连接按钮
@@ -59,6 +59,11 @@ FTPWindow::FTPWindow(QWidget *parent)
   // 下载按钮
   downloadButton = new QPushButton(tr("Download"));
   downloadButton->setEnabled(false);
+
+  // 上传按钮
+  uploadButton = new QPushButton(tr("Upload"));
+  uploadButton->setParent(localMain);
+  uploadButton->setEnabled(true);
 
   // 退出按钮
   quitButton = new QPushButton(tr("Quit"));
@@ -105,6 +110,12 @@ FTPWindow::FTPWindow(QWidget *parent)
   setLayout(mainLayout);
 
   setWindowTitle(tr("FTP Client"));
+
+  // 上传Widget布局
+  QVBoxLayout *localLayout = new QVBoxLayout;
+  localLayout->addWidget(localList);
+  localLayout->addWidget(uploadButton);
+  localMain->setLayout(localLayout);
 }
 
 // 界面宽高
@@ -360,9 +371,9 @@ void FTPWindow::updateDataTransferProgress(qint64 readBytes, qint64 totalBytes)
 void FTPWindow::showLocalMain()
 {
   localMain->setWindowTitle(tr("本地窗口"));
+  localMain->resize(QSize(800, 500));
   addToLocalList(localPath);
   localMain->show();
-  localList->show();
 }
 
 // 显示本地目录列表

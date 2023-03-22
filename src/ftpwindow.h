@@ -73,6 +73,7 @@ private:
   QPushButton *downloadButton;
   QPushButton *quitButton;
   QPushButton *localMainButton;
+  QPushButton *uploadButton;
   QDialogButtonBox *buttonBox;
   QProgressDialog *progressDialog;
   QWidget *localMain;
