@@ -90,6 +90,7 @@ FTPWindow::FTPWindow(QWidget *parent)
   connect(connectButton, SIGNAL(clicked()), this, SLOT(connectOrDisconnect()));
   connect(cdToParentButton, SIGNAL(clicked()), this, SLOT(cdToParent()));
   connect(downloadButton, SIGNAL(clicked()), this, SLOT(downloadFile()));
+  connect(uploadButton, SIGNAL(clicked()), this, SLOT(uploadFile()));
   connect(quitButton, SIGNAL(clicked()), this, SLOT(close()));
 
   // 设置布局
@@ -135,8 +136,8 @@ void FTPWindow::downAllFile(QString rootDir)
     QString fileName = selectedItemList[i]->text(0);
     if (isDirectory.value(fileName))
     {
-      if(fileName != "..")
-      downDirs.push(thisRoot + fileName);
+      if (fileName != "..")
+        downDirs.push(thisRoot + fileName);
     }
     else {
       // 统计下载的字节量
@@ -168,7 +169,8 @@ void FTPWindow::downAllFile(QString rootDir)
   }
 
   // 待下载目录堆栈不空，就处理
-  if (downDirs.size() > 0) {
+  if (downDirs.size() > 0)
+  {
     enterSubDir = true; //代表正在下载目录
 
     QString nextDir(downDirs.pop()); //取需要处理的下个目录
@@ -185,6 +187,70 @@ void FTPWindow::downAllFile(QString rootDir)
 
     downloadButton->setEnabled(false);
     downloadTotalFiles = files.size();
+  }
+}
+
+// 上传的真正操作函数
+void FTPWindow::upAllFile(QString rootDir)
+{
+  QString thisRoot(rootDir + "/");
+
+  QList<QTreeWidgetItem *> selectedItemList = localList->selectedItems();
+  for (int i = 0; i < selectedItemList.size(); i++)
+  {
+    QString fileName = selectedItemList[i]->text(0);
+    if (localDirectory.value(fileName))
+    {
+      if (fileName != "..")
+        uploadDirs.push(thisRoot + fileName);
+    }
+    else
+    {
+      uploadTotalBytes += selectedItemList[i]->text(1).toLongLong();
+      QString dirTmp(rootDir);
+      qDebug() << rootDir;
+      //dirTmp.append(dirTmp);
+      QDir upDir(dirTmp);
+
+      if (!upDir.exists(dirTmp))
+      {
+        upDir.mkpath(dirTmp);
+      }
+
+      QFile *file = new QFile(dirTmp.append("/").append(fileName));
+      qDebug() << fileName;
+      qDebug() << dirTmp;
+      if (!file->open(QIODevice::ReadOnly))
+      {
+        QMessageBox::information(localMain, tr("FTP"), tr("无法读取文件 %1: %2")
+                                                      .arg(fileName).arg(file->errorString()));
+
+        delete file;
+        return;
+      }
+
+      // 文件上传请求
+      int id = ftp->put(file, QString::fromLatin1((selectedItemList[i]->text(0)).toStdString().c_str()));
+      qDebug() << id;
+      localFiles.insert(id, file);
+    }
+  }
+
+  // 待上传目录堆栈不空，就处理
+  if (uploadDirs.size() > 0)
+  {
+    enterSubDir = true; //代表正在上传目录
+
+    QString nextDir(uploadDirs.pop());
+    addToLocalList(nextDir);
+
+    currentUpPath = nextDir;
+  }
+  else
+  {
+    enterSubDir = false;
+
+    uploadTotalBytes = localFiles.size();
   }
 }
 
@@ -254,6 +320,8 @@ void FTPWindow::connectOrDisconnect()
 void FTPWindow::connectToFtp()
 {
   ftp = new QFtp(this);
+
+  ftp->setTransferMode(QFtp::Active);
 
   connect(ftp, SIGNAL(commandFinished(int, bool)), this, SLOT(ftpCommandFinished(int, bool)));
   connect(ftp, SIGNAL(listInfos(QVector<QUrlInfo>)), this, SLOT(addToList(QVector<QUrlInfo>)));
@@ -416,6 +484,20 @@ void FTPWindow::addToLocalList(QString path)
     else
       localList->addTopLevelItem(item);
   }
+}
+
+// 未完成
+// 上传文件
+void FTPWindow::uploadFile()
+{
+  localFiles.clear();
+  uploadDirs.clear();
+  uploadBytes = 0;
+  uploadTotalBytes = 0;
+  enterSubDir = false;
+  uploadFinished = false;
+
+  upAllFile(localPath);
 }
 
 // 将目录添加到列表
@@ -637,6 +719,38 @@ void FTPWindow::ftpCommandFinished(int id, bool error)
         fileList->addTopLevelItem(new QTreeWidgetItem(QStringList() << tr("<empty>")));
         fileList->setEnabled(false);
       }
+    }
+  }
+
+  if (ftp->currentCommand() == QFtp::Put)
+  {
+    QFile *file = localFiles.take(id);
+
+    if (error)
+    {
+      statusLabel->setText(tr("%1 取消上传").arg(file->fileName()));
+      
+      file->close();
+      file->remove();
+
+      qDebug() << "取消成功: " << file->fileName();
+    }else
+    {
+      QStringList fileInfo = file->fileName().split("/");
+      statusLabel->setText(tr("上传成功，文件名: %1").arg(fileInfo[fileInfo.size() - 1]));
+      file->close();
+      qDebug() << "上传成功，文件名: " << file->fileName();
+    }
+
+    delete file;
+    file = nullptr;
+
+    if (localFiles.size() == 0 && !enterSubDir)
+    {
+      uploadFinished = true;
+      uploadBytes = 0;
+      uploadTotalBytes = 0;
+      uploadTotalFiles = 0;
     }
   }
 }
