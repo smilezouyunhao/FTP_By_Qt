@@ -465,7 +465,9 @@ void QFtpDTP::socketConnectionClosed()
 		clearData();
 	}
 
-	bytesFromSocket = socket->readAll();
+  if (socket && socket->state() == QTcpSocket::ConnectedState)
+    bytesFromSocket = socket->readAll();
+
 #if defined(QFTPDTP_DEBUG)
 	qDebug("QFtpDTP::connectState(CsClosed)");
 #endif

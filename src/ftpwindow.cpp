@@ -96,6 +96,7 @@ FTPWindow::FTPWindow(QWidget *parent)
   connect(cdToParentButton, SIGNAL(clicked()), this, SLOT(cdToParent()));
   connect(localCdToParentButton, SIGNAL(clicked()), this, SLOT(localCdToParent()));
   connect(downloadButton, SIGNAL(clicked()), this, SLOT(downloadFile()));
+  connect(uploadButton, SIGNAL(clicked()), this, SLOT(uploadFile()));
   connect(quitButton, SIGNAL(clicked()), this, SLOT(close()));
 
   // 设置布局
@@ -425,6 +426,34 @@ void FTPWindow::addToLocalList(QString path)
   }
 }
 
+// 上传函数
+void FTPWindow::uploadFile()
+{
+  QString thisRoot(localPath + "/");
+  QString remotePath(currentPath + "/");
+
+  QTreeWidgetItem *selectedItem = localList->currentItem();
+  QString fileName = selectedItem->text(0);
+  remotePath += fileName;
+  fileName = thisRoot + fileName;
+  uploadTotalBytes = selectedItem->text(1).toLongLong();
+
+  QFile *file = new QFile(fileName);
+  if (!file->open(QIODevice::ReadOnly))
+  {
+    QMessageBox::information(this, tr("FTP"), tr("无法读取文件 %1: %2.")
+                                              .arg(fileName).arg(file->errorString()));
+
+    delete file;
+    return;
+  }
+
+  qDebug() << "remotePath:" << remotePath;
+
+  // 文件上传请求
+  ftp->put(file, remotePath);
+}
+
 // 将目录添加到列表
 void FTPWindow::addToList(const QVector<QUrlInfo> &urlInfos)
 {
@@ -545,7 +574,7 @@ void FTPWindow::localProcessItem(QTreeWidgetItem *item, int column)
 {
   QString name = item->text(0);
 
-  if (localDirectory.value(name) && name != "..")
+  if (localDirectory.value(name))
   {
     localList->clear();
     localDirectory.clear();
@@ -666,6 +695,15 @@ void FTPWindow::ftpCommandFinished(int id, bool error)
         fileList->addTopLevelItem(new QTreeWidgetItem(QStringList() << tr("<empty>")));
         fileList->setEnabled(false);
       }
+    }
+  }
+
+  if (ftp->currentCommand() == QFtp::Put)
+  {
+
+    if (error)
+    {
+      qDebug() << "error:" << ftp->errorString();
     }
   }
 }

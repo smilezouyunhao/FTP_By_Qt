@@ -49,6 +49,9 @@ private slots:
   void showLocalMain();
   void addToLocalList(QString path);
 
+  // 上传函数
+  void uploadFile();
+
   // 遍历目录函数
   void addToList(const QVector<QUrlInfo> &urlInfos);
   void cdToParent();
@@ -103,6 +106,10 @@ private:
   bool enterSubDir;
   QString currentDownPath;
   QStack<QString> downDirs; //下载处理堆栈
+
+  // 上传
+  long long uploadBytes;
+  long long uploadTotalBytes;
 };
 
 #endif  //FTPWINDOW_H
