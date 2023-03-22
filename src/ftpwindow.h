@@ -52,6 +52,7 @@ private slots:
   // 遍历目录函数
   void addToList(const QVector<QUrlInfo> &urlInfos);
   void cdToParent();
+  void localCdToParent();
   void processItem(QTreeWidgetItem *item, int column);
   void localProcessItem(QTreeWidgetItem *item, int column);
 
@@ -74,6 +75,7 @@ private:
   QPushButton *quitButton;
   QPushButton *localMainButton;
   QPushButton *uploadButton;
+  QPushButton *localCdToParentButton;
   QDialogButtonBox *buttonBox;
   QProgressDialog *progressDialog;
   QWidget *localMain;

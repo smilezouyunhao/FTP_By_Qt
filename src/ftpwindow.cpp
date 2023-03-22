@@ -56,6 +56,11 @@ FTPWindow::FTPWindow(QWidget *parent)
   cdToParentButton->setIcon(QPixmap(":/images/cdtoparent.png"));
   cdToParentButton->setEnabled(false);
 
+  // 本地返回上层目录按钮
+  localCdToParentButton = new QPushButton;
+  localCdToParentButton->setIcon(QPixmap(":/images/cdtoparent.png"));
+  localCdToParentButton->setEnabled(false);
+
   // 下载按钮
   downloadButton = new QPushButton(tr("Download"));
   downloadButton->setEnabled(false);
@@ -89,6 +94,7 @@ FTPWindow::FTPWindow(QWidget *parent)
   connect(progressDialog, SIGNAL(canceled()), this, SLOT(cancelDownload()));
   connect(connectButton, SIGNAL(clicked()), this, SLOT(connectOrDisconnect()));
   connect(cdToParentButton, SIGNAL(clicked()), this, SLOT(cdToParent()));
+  connect(localCdToParentButton, SIGNAL(clicked()), this, SLOT(localCdToParent()));
   connect(downloadButton, SIGNAL(clicked()), this, SLOT(downloadFile()));
   connect(quitButton, SIGNAL(clicked()), this, SLOT(close()));
 
@@ -113,6 +119,7 @@ FTPWindow::FTPWindow(QWidget *parent)
 
   // 上传Widget布局
   QVBoxLayout *localLayout = new QVBoxLayout;
+  localLayout->addWidget(localCdToParentButton);
   localLayout->addWidget(localList);
   localLayout->addWidget(uploadButton);
   localMain->setLayout(localLayout);
@@ -386,7 +393,7 @@ void FTPWindow::addToLocalList(QString path)
   if (!dir.exists())
     return;
 
-  dir.setFilter(QDir::Files | QDir::Dirs | QDir::NoSymLinks | QDir::NoDot);
+  dir.setFilter(QDir::Files | QDir::Dirs | QDir::NoSymLinks | QDir::NoDotAndDotDot);
   QFileInfoList list = dir.entryInfoList();
 
   int file_count = list.count();
@@ -487,6 +494,25 @@ void FTPWindow::cdToParent()
   ftp->list();
 }
 
+// 本地往上目录
+void FTPWindow::localCdToParent()
+{
+#ifndef QT_NO_CURSOR
+  setCursor(Qt::WaitCursor);
+#endif
+
+  localList->clear();
+  localDirectory.clear();
+  localPath = localPath.left(localPath.lastIndexOf('/'));
+
+  addToLocalList(localPath);
+
+  if (localPath.isEmpty())
+  {
+    localCdToParentButton->setEnabled(false);
+  }
+}
+
 // 处理TreeWidgetItem
 void FTPWindow::processItem(QTreeWidgetItem *item, int column)
 {
@@ -519,7 +545,7 @@ void FTPWindow::localProcessItem(QTreeWidgetItem *item, int column)
 {
   QString name = item->text(0);
 
-  if (localDirectory.value(name))
+  if (localDirectory.value(name) && name != "..")
   {
     localList->clear();
     localDirectory.clear();
@@ -533,9 +559,12 @@ void FTPWindow::localProcessItem(QTreeWidgetItem *item, int column)
     setCursor(Qt::WaitCursor);
 #endif
 
+    qDebug() << localPath;
+
+    localCdToParentButton->setEnabled(true);
+
     return;
   }
-
 }
 
 // 将下载按钮启用
