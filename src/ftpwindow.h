@@ -51,6 +51,8 @@ private slots:
 
   // 上传函数
   void uploadFile();
+  void cancelUpload();
+  void uploadShowProgressDialog();
 
   // 遍历目录函数
   void addToList(const QVector<QUrlInfo> &urlInfos);
@@ -69,7 +71,7 @@ private:
   QLabel *ftpServerLabel;
   QLineEdit *ftpServerLineEdit;
   QLabel *statusLabel;
-  QLabel *localPathLabel;
+  QLabel *localStatusLabel;
   QTreeWidget *fileList;
   QTreeWidget *localList;
   QPushButton *cdToParentButton;
@@ -98,18 +100,17 @@ private:
   QNetworkConfigurationManager manager;
 
   // 下载
-  long long downloadBytes;
-  long long downloadTotalBytes;
+  long long dataBytes;
+  long long dataTotalBytes;
   int downloadTotalFiles;
-  QString downloadPath;
+  QString downloadPath; //在项目所在文件夹创建一个文件夹存储
   bool downFinished;
   bool enterSubDir;
   QString currentDownPath;
   QStack<QString> downDirs; //下载处理堆栈
 
   // 上传
-  long long uploadBytes;
-  long long uploadTotalBytes;
+  bool uploadFinished;
 };
 
 #endif  //FTPWINDOW_H

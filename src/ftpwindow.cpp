@@ -4,9 +4,9 @@
 #include <QtNetwork>
 
 FTPWindow::FTPWindow(QWidget *parent)
-  : QDialog(parent), ftp(nullptr), networkSession(0), downloadBytes(0),
-  downloadTotalBytes(0), downloadTotalFiles(0), downloadPath(QCoreApplication::applicationDirPath() + "/DownDir"),
-  downFinished(true), enterSubDir(false), currentDownPath(""), localPath(QCoreApplication::applicationDirPath())
+  : QDialog(parent), ftp(nullptr), networkSession(0), dataBytes(0),
+  dataTotalBytes(0), downloadTotalFiles(0), downloadPath(QCoreApplication::applicationDirPath() + "/DownDir"),
+  downFinished(true), uploadFinished(true), enterSubDir(false), currentDownPath(""), localPath(QCoreApplication::applicationDirPath())
 {
   // ftp服务器输入框
   ftpServerLabel = new QLabel(tr("FTP &server:"));
@@ -17,12 +17,12 @@ FTPWindow::FTPWindow(QWidget *parent)
   statusLabel = new QLabel(tr("请输入FTP server的信息"));
 
   // 本地路径提示框
-  localPathLabel = new QLabel(tr("LocalPath: %1").arg(QCoreApplication::applicationDirPath()));
+  localStatusLabel = new QLabel(tr("进入本地窗口..."));
 
-  // 本地Widget窗口唤出按钮
-  localMainButton = new QPushButton(tr("Main"));
+  // 本地窗口唤出按钮
+  localMainButton = new QPushButton(tr("Local"));
 
-  // 本地列表Widget
+  // 本地列表窗口
   localMain = new QWidget;
   
   // 目录列表
@@ -38,7 +38,6 @@ FTPWindow::FTPWindow(QWidget *parent)
 
   // 本地目录列表
   localList = new QTreeWidget(localMain);
-  /* localList->resize(QSize(800, 500)); */
   localList->setRootIsDecorated(false);
   localList->setSelectionMode(QAbstractItemView::ExtendedSelection);
   localList->setHeaderLabels(QStringList() << tr("文件名") << tr("大小") << tr("时间"));
@@ -59,7 +58,7 @@ FTPWindow::FTPWindow(QWidget *parent)
   // 本地返回上层目录按钮
   localCdToParentButton = new QPushButton;
   localCdToParentButton->setIcon(QPixmap(":/images/cdtoparent.png"));
-  localCdToParentButton->setEnabled(false);
+  localCdToParentButton->setEnabled(true);
 
   // 下载按钮
   downloadButton = new QPushButton(tr("Download"));
@@ -92,6 +91,7 @@ FTPWindow::FTPWindow(QWidget *parent)
   connect(localList, SIGNAL(itemActivated(QTreeWidgetItem *, int)), this, SLOT(localProcessItem(QTreeWidgetItem *, int)));
 
   connect(progressDialog, SIGNAL(canceled()), this, SLOT(cancelDownload()));
+  connect(progressDialog, SIGNAL(canceled()), this, SLOT(cancelUpload()));
   connect(connectButton, SIGNAL(clicked()), this, SLOT(connectOrDisconnect()));
   connect(cdToParentButton, SIGNAL(clicked()), this, SLOT(cdToParent()));
   connect(localCdToParentButton, SIGNAL(clicked()), this, SLOT(localCdToParent()));
@@ -111,17 +111,17 @@ FTPWindow::FTPWindow(QWidget *parent)
   mainLayout->addLayout(topLayout);
   mainLayout->addWidget(fileList);
   mainLayout->addWidget(statusLabel);
-  mainLayout->addWidget(localPathLabel);
   mainLayout->addWidget(buttonBox);
 
   setLayout(mainLayout);
 
   setWindowTitle(tr("FTP Client"));
 
-  // 上传Widget布局
+  // 本地列表布局
   QVBoxLayout *localLayout = new QVBoxLayout;
   localLayout->addWidget(localCdToParentButton);
   localLayout->addWidget(localList);
+  localLayout->addWidget(localStatusLabel);
   localLayout->addWidget(uploadButton);
   localMain->setLayout(localLayout);
 }
@@ -148,7 +148,7 @@ void FTPWindow::downAllFile(QString rootDir)
     }
     else {
       // 统计下载的字节量
-      downloadTotalBytes += selectedItemList[i]->text(1).toLongLong();
+      dataTotalBytes += selectedItemList[i]->text(1).toLongLong();
       QString dirTmp(downloadPath);
       dirTmp.append(rootDir);
       QDir downDir(dirTmp);
@@ -301,8 +301,8 @@ void FTPWindow::downloadFile()
 {
   files.clear();
   downDirs.clear();
-  downloadBytes = 0;
-  downloadTotalBytes = 0;
+  dataBytes = 0;
+  dataTotalBytes = 0;
   enterSubDir = false;
   downFinished = false;
 
@@ -315,8 +315,8 @@ void FTPWindow::cancelDownload()
 {
   ftp->abort();
 
-  downloadBytes = 0;
-  downloadTotalBytes = 0;
+  dataBytes = 0;
+  dataTotalBytes = 0;
 
   if (enterSubDir)
   {
@@ -341,6 +341,7 @@ void FTPWindow::showProgressDialog()
   if (!downFinished)
   {
     progressDialog->setLabelText(tr("正在下载所选文件..."));
+    progressDialog->setMinimumSize(QSize(400, 50));
     progressDialog->exec();
   }
 }
@@ -366,12 +367,12 @@ void FTPWindow::clearDownFilesWhenCancelDownDir()
 // 更新下载进度
 void FTPWindow::updateDataTransferProgress(qint64 readBytes, qint64 totalBytes)
 {
-  downloadBytes += readBytes;
+  dataBytes += readBytes;
 
   if (!progressDialog->isHidden())
   {
-    progressDialog->setMaximum(downloadTotalBytes);
-    progressDialog->setValue(downloadBytes);
+    progressDialog->setMaximum(dataTotalBytes);
+    progressDialog->setValue(dataBytes);
   }
 }
 
@@ -436,7 +437,7 @@ void FTPWindow::uploadFile()
   QString fileName = selectedItem->text(0);
   remotePath += fileName;
   fileName = thisRoot + fileName;
-  uploadTotalBytes = selectedItem->text(1).toLongLong();
+  dataTotalBytes = selectedItem->text(1).toLongLong();
 
   QFile *file = new QFile(fileName);
   if (!file->open(QIODevice::ReadOnly))
@@ -452,6 +453,30 @@ void FTPWindow::uploadFile()
 
   // 文件上传请求
   ftp->put(file, remotePath);
+
+  uploadFinished = false;
+
+  uploadShowProgressDialog();
+}
+
+// 取消上传
+void FTPWindow::cancelUpload()
+{
+  ftp->abort();
+
+  dataBytes = 0;
+  dataTotalBytes = 0;
+}
+
+// 上传进度条
+void FTPWindow::uploadShowProgressDialog()
+{
+  if (!uploadFinished)
+  {
+    progressDialog->setLabelText(tr("正在上传所选文件..."));
+    progressDialog->setMinimumSize(QSize(400, 50));
+    progressDialog->exec();
+  }
 }
 
 // 将目录添加到列表
@@ -685,8 +710,8 @@ void FTPWindow::ftpCommandFinished(int id, bool error)
       enableDownloadButton();
       progressDialog->reset();
       progressDialog->hide();
-      downloadBytes = 0;
-      downloadTotalBytes = 0;
+      dataBytes = 0;
+      dataTotalBytes = 0;
       downloadTotalFiles = 0;
     }else if (ftp->currentCommand() == QFtp::List)
     {
@@ -700,10 +725,16 @@ void FTPWindow::ftpCommandFinished(int id, bool error)
 
   if (ftp->currentCommand() == QFtp::Put)
   {
-
     if (error)
     {
       qDebug() << "error:" << ftp->errorString();
     }
+
+    progressDialog->reset();
+    progressDialog->hide();
+    dataBytes = 0;
+    dataTotalBytes = 0;
+
+    uploadFinished = true;
   }
 }
