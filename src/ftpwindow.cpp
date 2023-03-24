@@ -452,7 +452,8 @@ void FTPWindow::uploadFile()
   qDebug() << "remotePath:" << remotePath;
 
   // 文件上传请求
-  ftp->put(file, remotePath);
+  int id = ftp->put(file, remotePath);
+  localFiles.insert(id, file);
 
   uploadFinished = false;
 
@@ -725,10 +726,25 @@ void FTPWindow::ftpCommandFinished(int id, bool error)
 
   if (ftp->currentCommand() == QFtp::Put)
   {
+    QFile *file = localFiles.take(id);
+
     if (error)
     {
+      localStatusLabel->setText(tr("%1 取消上传").arg(file->fileName()));
+
+      file->close();
+      file->remove();
+
       qDebug() << "error:" << ftp->errorString();
+    }else
+    {
+      QStringList fileInfo = file->fileName().split("/");
+      localStatusLabel->setText(tr("上传成功，文件名: %1").arg(fileInfo[fileInfo.size() - 1]));
+      file->close();
     }
+
+    delete file;
+    file = nullptr;
 
     progressDialog->reset();
     progressDialog->hide();

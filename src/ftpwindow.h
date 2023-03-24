@@ -94,6 +94,7 @@ private:
   // 本地系统
   QHash<QString, bool> localDirectory;
   QString localPath;
+  QMap<int, QFile *> localFiles;
 
   // 网络会话
   QNetworkSession *networkSession;
